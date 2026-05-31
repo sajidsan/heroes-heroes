@@ -81,16 +81,25 @@ export function TimelineGraph({
   const zoomBehRef    = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const nodePositions = useRef<Map<string, { x: number; y: number }>>(new Map());
   const arcMids       = useRef<Map<string, { mx: number; my: number }>>(new Map());
-  const selRef        = useRef<Selection | null>(null); // kept in sync, avoids stale closures
+  const selRef           = useRef<Selection | null>(null); // kept in sync, avoids stale closures
+  // Remembers last-visited edge per context+direction so navigating back lands on the right sibling
+  // Key: `${contextId}-in` | `${contextId}-out`   Value: the other endpoint id
+  const lastEdgeRef      = useRef<Map<string, string>>(new Map());
 
   const [selection, _setSelection] = useState<Selection | null>(null);
   const [hoverTip, setHoverTip]    = useState<HoverTip | null>(null);
   const [positionKey, setPositionKey] = useState(0); // bumped on zoom end → re-positions cards
-  void (typeof window !== 'undefined' && window.innerWidth >= 768); // kept for future mobile variants
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
   const setSelection = useCallback((s: Selection | null) => {
     selRef.current = s;
     _setSelection(s);
+    // Remember last-visited edge per context+direction for "memory" navigation
+    if (s?.kind === 'edge') {
+      const isIncoming = s.contextId === s.heroId;
+      const key = `${s.contextId}-${isIncoming ? 'in' : 'out'}`;
+      lastEdgeRef.current.set(key, isIncoming ? s.studentId : s.heroId);
+    }
   }, []);
 
   // hero → all students who cited them
@@ -227,10 +236,10 @@ export function TimelineGraph({
       .attr('transform', `translate(0,${ph})`)
       .call(d3.axisBottom(xScale).ticks(8).tickFormat(d => `${d}`).tickSize(-ph))
       .call(ax => {
-        ax.select('.domain').attr('stroke', theme.borderSubtle);
-        ax.selectAll('.tick line').attr('stroke', theme.borderSubtle).attr('stroke-dasharray', '3 4');
+        ax.select('.domain').attr('stroke', theme.outlineVariant);
+        ax.selectAll('.tick line').attr('stroke', theme.outlineVariant).attr('stroke-dasharray', '3 4');
         ax.selectAll('.tick text')
-          .attr('fill', theme.textMuted).attr('font-size', 10)
+          .attr('fill', theme.onSurfaceMuted).attr('font-size', 10)
           .attr('font-family', theme.fontMono).attr('dy', '1.4em');
       });
 
@@ -241,10 +250,10 @@ export function TimelineGraph({
         .attr('viewBox', '0 -4 8 8').attr('refX', 19).attr('refY', 0)
         .attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
         .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', col);
-    mkArr('arr-dim',     theme.edgeDimArrow);
-    mkArr('arr-default', theme.nodeStroke);
-    mkArr('arr-out',     theme.accentOut);
-    mkArr('arr-in',      theme.accentIn);
+    mkArr('arr-dim',     theme.edgeDimmedmedArrow);
+    mkArr('arr-default', theme.nodeOutline);
+    mkArr('arr-out',     theme.outgoing);
+    mkArr('arr-in',      theme.incoming);
 
     // Edges
     const edgeG = g.append('g').attr('class', 'edges');
@@ -257,10 +266,10 @@ export function TimelineGraph({
       // Path runs student→hero (right→left) so marker-end lands at the source/hero
       const pathD = `M${x2},${y2} Q${cx},${cy} ${x1},${y1}`;
 
-      // Store arc midpoint (bezier t=0.5)
+      // Anchor at the arc's control point (peak of curve) — gives maximum clearance
       arcMids.current.set(`${link.studentId}-${link.heroId}`, {
-        mx: 0.25*x1 + 0.5*cx + 0.25*x2,
-        my: 0.25*y1 + 0.5*cy + 0.25*y2 - 14,
+        mx: cx,
+        my: cy - 6,
       });
 
       // Visible path (no pointer events — all handled by hit area)
@@ -323,12 +332,12 @@ export function TimelineGraph({
 
       ng.append('circle').attr('r', 20).attr('fill', 'transparent');
       ng.append('circle').attr('class', 'node-circle').attr('r', 9)
-        .attr('fill', theme.nodeFill).attr('stroke', color).attr('stroke-width', 2);
+        .attr('fill', theme.nodeSurface).attr('stroke', color).attr('stroke-width', 2);
       ng.append('circle').attr('class', 'node-dot').attr('r', 3).attr('fill', color);
       ng.append('text').attr('class', 'node-label')
         .attr('y', -14).attr('text-anchor', 'middle')
         .attr('font-size', 10).attr('font-family', theme.fontMono)
-        .attr('fill', theme.textMuted).attr('pointer-events', 'none')
+        .attr('fill', theme.onSurfaceMuted).attr('pointer-events', 'none')
         .text(m.name.split(' ').pop()!);
 
       ng.on('click', ev => {
@@ -348,7 +357,7 @@ export function TimelineGraph({
     usedEras.forEach((era, i) => {
       legG.append('circle').attr('cx', i*108).attr('r', 4).attr('fill', ERA_COLORS[era] ?? '#9ca3af');
       legG.append('text').attr('x', i*108+9).attr('y', 4)
-        .attr('fill', theme.textMuted).attr('font-size', 9).attr('font-family', theme.fontMono).text(era);
+        .attr('fill', theme.onSurfaceMuted).attr('font-size', 9).attr('font-family', theme.fontMono).text(era);
     });
 
     return () => { sim.stop(); };
@@ -367,7 +376,7 @@ export function TimelineGraph({
     svg.selectAll('.edge-hit').attr('pointer-events', 'auto').attr('cursor', 'pointer');
     svg.selectAll('.node-circle').attr('opacity', 1).attr('stroke-width', 2);
     svg.selectAll('.node-dot').attr('opacity', 1);
-    svg.selectAll('.node-label').attr('opacity', 1).attr('fill', theme.textMuted);
+    svg.selectAll('.node-label').attr('opacity', 1).attr('fill', theme.onSurfaceMuted);
 
     if (!selection) return;
 
@@ -384,7 +393,7 @@ export function TimelineGraph({
 
     // Dim everything
     svg.selectAll('.edge-path')
-      .attr('opacity', 0.04).attr('stroke', theme.edgeDim).attr('marker-end', 'url(#arr-dim)');
+      .attr('opacity', 0.04).attr('stroke', theme.edgeDimmed).attr('marker-end', 'url(#arr-dim)');
     svg.selectAll('.edge-hit').attr('pointer-events', 'none');
     svg.selectAll('.node-circle').attr('opacity', 0.1);
     svg.selectAll('.node-dot').attr('opacity', 0.1);
@@ -398,7 +407,7 @@ export function TimelineGraph({
     const softenNode = (id: string) => {
       svg.select(`.node-${id} .node-circle`).attr('opacity', 0.4);
       svg.select(`.node-${id} .node-dot`).attr('opacity', 0.4);
-      svg.select(`.node-${id} .node-label`).attr('opacity', 0.4).attr('fill', theme.textMuted);
+      svg.select(`.node-${id} .node-label`).attr('opacity', 0.4).attr('fill', theme.onSurfaceMuted);
     };
     const softenEdge = (key: string, color: string, marker: string) => {
       svg.select(`.edge-path.edge-${key}`)
@@ -432,13 +441,13 @@ export function TimelineGraph({
 
       // Outgoing (amber): musician studied these heroes — medium brightness
       ctxMusician.heroes.forEach(h => {
-        medEdge(`${ctxId}-${h.heroId}`, theme.accentOut, 'arr-out');
-        medNode(h.heroId, theme.accentOut);
+        medEdge(`${ctxId}-${h.heroId}`, theme.outgoing, 'arr-out');
+        medNode(h.heroId, theme.outgoing);
       });
       // Incoming (purple): these students cited this musician — medium brightness
       students.forEach(s => {
-        medEdge(`${s.id}-${ctxId}`, theme.accentIn, 'arr-in');
-        medNode(s.id, theme.accentIn);
+        medEdge(`${s.id}-${ctxId}`, theme.incoming, 'arr-in');
+        medNode(s.id, theme.incoming);
       });
     } else {
       // Edge focused — determine direction relative to context
@@ -450,7 +459,7 @@ export function TimelineGraph({
       brightenNode(ctxId, '#ffffff', 3);
 
       // The focused edge — full brightness
-      const focusedColor = isIncoming ? theme.accentIn : theme.accentOut;
+      const focusedColor = isIncoming ? theme.incoming : theme.outgoing;
       const focusedMarker = isIncoming ? 'arr-in' : 'arr-out';
       brightenEdge(`${studentId}-${heroId}`, focusedColor, focusedMarker);
 
@@ -463,14 +472,14 @@ export function TimelineGraph({
         students
           .filter(s => s.id !== studentId)
           .forEach(s => {
-            softenEdge(`${s.id}-${ctxId}`, theme.accentIn, 'arr-in');
+            softenEdge(`${s.id}-${ctxId}`, theme.incoming, 'arr-in');
             softenNode(s.id);
           });
       } else if (isOutgoing) {
         ctxMusician.heroes
           .filter(h => h.heroId !== heroId)
           .forEach(h => {
-            softenEdge(`${ctxId}-${h.heroId}`, theme.accentOut, 'arr-out');
+            softenEdge(`${ctxId}-${h.heroId}`, theme.outgoing, 'arr-out');
             softenNode(h.heroId);
           });
       }
@@ -537,14 +546,19 @@ export function TimelineGraph({
             : (idx - 1 + ordered.length) % ordered.length;
           setSelection({ kind: 'musician', id: ordered[next].id });
         } else if (e.key === 'ArrowLeft' && m.heroes.length > 0) {
-          // Go to first outgoing edge (musician's hero)
           e.preventDefault();
-          setSelection({ kind: 'edge', studentId: sel.id, heroId: m.heroes[0].heroId, contextId: sel.id });
+          // Restore last-visited outgoing edge if remembered, else use first
+          const remembered = lastEdgeRef.current.get(`${sel.id}-out`);
+          const heroId = (remembered && m.heroes.find(h => h.heroId === remembered))
+            ? remembered : m.heroes[0].heroId;
+          setSelection({ kind: 'edge', studentId: sel.id, heroId, contextId: sel.id });
         } else if (e.key === 'ArrowRight' && studentsOfM.length > 0) {
-          // Go to first incoming edge (student who cited this musician)
           e.preventDefault();
-          const first = studentsOfM[0];
-          setSelection({ kind: 'edge', studentId: first.id, heroId: sel.id, contextId: sel.id });
+          // Restore last-visited incoming edge if remembered, else use first
+          const remembered = lastEdgeRef.current.get(`${sel.id}-in`);
+          const studentId = (remembered && studentsOfM.find(s => s.id === remembered))
+            ? remembered : studentsOfM[0].id;
+          setSelection({ kind: 'edge', studentId, heroId: sel.id, contextId: sel.id });
         } else if (e.key === 'Escape') {
           e.preventDefault();
           setSelection(null);
@@ -699,23 +713,36 @@ export function TimelineGraph({
   return (
     <div
       ref={containerRef}
-      style={{ position: 'relative', height: '100%', background: theme.bgBase, overflow: 'hidden' }}
+      style={{ position: 'relative', height: '100%', background: theme.surface, overflow: 'hidden' }}
     >
       <svg ref={svgRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
-      {/* Keyboard nav hint */}
-      {selection && (
+      {/* Keyboard nav hint — desktop only */}
+      {selection && !isMobile && (
         <div style={{
           position: 'absolute',
           bottom: selectedMusician ? 52 : 12,
           left: '50%', transform: 'translateX(-50%)',
-          color: theme.textDim, fontSize: 10, fontFamily: theme.fontMono,
+          color: theme.scrim, fontSize: 10, fontFamily: theme.fontMono,
           pointerEvents: 'none', userSelect: 'none',
           display: 'flex', gap: 8, alignItems: 'center',
           zIndex: 5, whiteSpace: 'nowrap',
         }}>
           {navHint}
         </div>
+      )}
+
+      {/* Mobile floating nav controls */}
+      {selection && isMobile && (
+        <MobileNavControls
+          selection={selection}
+          musicians={musicians}
+          heroToStudents={heroToStudents}
+          lastEdge={lastEdgeRef.current}
+          theme={theme}
+          onSetSelection={setSelection}
+          onClear={clearAll}
+        />
       )}
 
       {/* Hover tooltip */}
@@ -761,6 +788,217 @@ export function TimelineGraph({
   );
 }
 
+// ── Mobile floating nav controls ─────────────────────────────────────────────
+
+function MobileNavControls({
+  selection,
+  musicians,
+  heroToStudents,
+  lastEdge,
+  theme,
+  onSetSelection,
+  onClear,
+}: {
+  selection: Selection;
+  musicians: Musician[];
+  heroToStudents: Map<string, Musician[]>;
+  lastEdge: Map<string, string>;
+  theme: Theme;
+  onSetSelection: (s: Selection | null) => void;
+  onClear: () => void;
+}) {
+  let leftFn: (() => void) | null = null;
+  let leftLabel = '';
+  let rightFn: (() => void) | null = null;
+  let rightLabel = '';
+  let upFn: (() => void) | null = null;
+  let downFn: (() => void) | null = null;
+  let centerLabel = '';
+
+  if (selection.kind === 'musician') {
+    const m = musicians.find(x => x.id === selection.id)!;
+    const students = heroToStudents.get(selection.id) ?? [];
+    const ordered = [...musicians].sort((a, b) => a.born - b.born || a.name.localeCompare(b.name));
+    const idx = ordered.findIndex(x => x.id === selection.id);
+
+    if (m.heroes.length > 0) {
+      const remOut = lastEdge.get(`${selection.id}-out`);
+      const heroId = (remOut && m.heroes.find(h => h.heroId === remOut)) ? remOut : m.heroes[0].heroId;
+      leftFn = () => onSetSelection({ kind: 'edge', studentId: selection.id, heroId, contextId: selection.id });
+      leftLabel = m.heroes.length === 1
+        ? (musicians.find(x => x.id === heroId)?.name.split(' ').pop() ?? 'Studied')
+        : `Studied (${m.heroes.length})`;
+    }
+    if (students.length > 0) {
+      const remIn = lastEdge.get(`${selection.id}-in`);
+      const stuId = (remIn && students.find(s => s.id === remIn)) ? remIn : students[0].id;
+      const stuM = musicians.find(x => x.id === stuId)!;
+      rightFn = () => onSetSelection({ kind: 'edge', studentId: stuId, heroId: selection.id, contextId: selection.id });
+      rightLabel = students.length === 1
+        ? (stuM?.name.split(' ').pop() ?? 'Cited By')
+        : `Cited By (${students.length})`;
+    }
+    upFn = () => {
+      const prev = (idx - 1 + ordered.length) % ordered.length;
+      onSetSelection({ kind: 'musician', id: ordered[prev].id });
+    };
+    downFn = () => {
+      const next = (idx + 1) % ordered.length;
+      onSetSelection({ kind: 'musician', id: ordered[next].id });
+    };
+    centerLabel = `${idx + 1} / ${ordered.length}`;
+
+  } else {
+    const { studentId, heroId, contextId } = selection;
+    const ctxM = musicians.find(x => x.id === contextId)!;
+    const students = heroToStudents.get(contextId) ?? [];
+    const isIncoming = contextId === heroId;
+    const isOutgoing = contextId === studentId;
+
+    const heroM  = musicians.find(x => x.id === heroId);
+    const stuM   = musicians.find(x => x.id === studentId);
+
+    // Left = the hero (older, left in timeline)
+    leftFn = () => onSetSelection({ kind: 'musician', id: heroId });
+    leftLabel = heroM?.name.split(' ').pop() ?? '';
+
+    // Right = the student (newer, right in timeline)
+    rightFn = () => onSetSelection({ kind: 'musician', id: studentId });
+    rightLabel = stuM?.name.split(' ').pop() ?? '';
+
+    // Up/down = siblings
+    if (isIncoming) {
+      const idx = students.findIndex(s => s.id === studentId);
+      centerLabel = `${idx + 1} / ${students.length}`;
+      if (students.length > 1) {
+        upFn = () => {
+          const prev = (idx - 1 + students.length) % students.length;
+          onSetSelection({ kind: 'edge', studentId: students[prev].id, heroId: contextId, contextId });
+        };
+        downFn = () => {
+          const next = (idx + 1) % students.length;
+          onSetSelection({ kind: 'edge', studentId: students[next].id, heroId: contextId, contextId });
+        };
+      }
+    } else if (isOutgoing) {
+      const idx = ctxM.heroes.findIndex(h => h.heroId === heroId);
+      centerLabel = `${idx + 1} / ${ctxM.heroes.length}`;
+      if (ctxM.heroes.length > 1) {
+        upFn = () => {
+          const prev = (idx - 1 + ctxM.heroes.length) % ctxM.heroes.length;
+          onSetSelection({ kind: 'edge', studentId: contextId, heroId: ctxM.heroes[prev].heroId, contextId });
+        };
+        downFn = () => {
+          const next = (idx + 1) % ctxM.heroes.length;
+          onSetSelection({ kind: 'edge', studentId: contextId, heroId: ctxM.heroes[next].heroId, contextId });
+        };
+      }
+    }
+  }
+
+  const btn = (label: string, sublabel: string, fn: (() => void) | null, align: 'left' | 'right' | 'center') => (
+    <button
+      onPointerDown={ev => { ev.stopPropagation(); fn?.(); }}
+      disabled={!fn}
+      style={{
+        flex: align === 'center' ? '0 0 64px' : 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: align === 'left' ? 'flex-start' : align === 'right' ? 'flex-end' : 'center',
+        justifyContent: 'center',
+        gap: 2,
+        padding: '0 10px',
+        minHeight: 52,
+        background: 'none',
+        border: 'none',
+        borderRadius: 8,
+        cursor: fn ? 'pointer' : 'default',
+        opacity: fn ? 1 : 0.2,
+        WebkitTapHighlightColor: 'transparent',
+        outline: 'none',
+      }}
+    >
+      <span style={{ color: theme.onSurface, fontSize: 16, fontFamily: theme.fontMono, lineHeight: 1 }}>
+        {label}
+      </span>
+      {sublabel && (
+        <span style={{ color: theme.onSurfaceMuted, fontSize: 9, fontFamily: theme.fontMono, letterSpacing: '0.03em' }}>
+          {sublabel}
+        </span>
+      )}
+    </button>
+  );
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 10, left: 10, right: 10,
+        zIndex: 200,
+        background: theme.surfaceContainer,
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: `1px solid ${theme.outline}`,
+        borderRadius: 14,
+        boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+        display: 'flex',
+        alignItems: 'stretch',
+      }}
+      onClick={ev => ev.stopPropagation()}
+    >
+      {/* ← left */}
+      {btn('←', leftLabel, leftFn, 'left')}
+
+      {/* divider */}
+      <div style={{ width: 1, background: theme.outline, alignSelf: 'stretch', margin: '10px 0' }} />
+
+      {/* ↑ count ↓ center */}
+      <div style={{
+        flex: '0 0 72px', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 0,
+      }}>
+        <button
+          onPointerDown={ev => { ev.stopPropagation(); upFn?.(); }}
+          disabled={!upFn}
+          style={{ background: 'none', border: 'none', color: upFn ? theme.onSurface : theme.scrim, fontSize: 16, padding: '6px 16px', cursor: upFn ? 'pointer' : 'default', fontFamily: theme.fontMono, WebkitTapHighlightColor: 'transparent' }}
+        >↑</button>
+        {centerLabel && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <span style={{ color: theme.onSurfaceMuted, fontSize: 9, fontFamily: theme.fontMono }}>{centerLabel}</span>
+            <span style={{ color: theme.scrim, fontSize: 8, fontFamily: theme.fontMono, letterSpacing: '0.04em' }}>connections</span>
+          </div>
+        )}
+        <button
+          onPointerDown={ev => { ev.stopPropagation(); downFn?.(); }}
+          disabled={!downFn}
+          style={{ background: 'none', border: 'none', color: downFn ? theme.onSurface : theme.scrim, fontSize: 16, padding: '6px 16px', cursor: downFn ? 'pointer' : 'default', fontFamily: theme.fontMono, WebkitTapHighlightColor: 'transparent' }}
+        >↓</button>
+      </div>
+
+      {/* divider */}
+      <div style={{ width: 1, background: theme.outline, alignSelf: 'stretch', margin: '10px 0' }} />
+
+      {/* right → */}
+      {btn('→', rightLabel, rightFn, 'right')}
+
+      {/* × close */}
+      <button
+        onPointerDown={ev => { ev.stopPropagation(); onClear(); }}
+        aria-label="Close"
+        style={{
+          position: 'absolute', top: 8, right: 10,
+          background: 'none', border: 'none',
+          color: theme.scrim, fontSize: 14,
+          cursor: 'pointer', padding: '2px 4px',
+          fontFamily: theme.fontMono,
+          WebkitTapHighlightColor: 'transparent',
+          lineHeight: 1,
+        }}
+      >×</button>
+    </div>
+  );
+}
+
 // ── Hover tooltip ─────────────────────────────────────────────────────────────
 // Sized at ~62% of the edge popover (the popover is the "pinned" full version)
 
@@ -771,24 +1009,24 @@ function HoverTooltip({ tip, theme }: { tip: HoverTip; theme: Theme }) {
       pointerEvents: 'none', zIndex: 20, maxWidth: 300,
     }}>
       <div style={{
-        background: theme.bgSurface, border: `1px solid ${theme.borderBase}`,
+        background: theme.surfaceContainer, border: `1px solid ${theme.outline}`,
         borderRadius: 6, padding: '10px 14px',
         boxShadow: '0 4px 24px rgba(0,0,0,0.55)',
       }}>
         <div style={{ fontSize: 11, fontFamily: theme.fontMono, marginBottom: 6 }}>
-          <span style={{ color: theme.textPrimary }}>{tip.studentName}</span>
-          <span style={{ color: theme.textDim }}> on </span>
-          <span style={{ color: theme.accentOut }}>{tip.heroName}</span>
+          <span style={{ color: theme.onSurface }}>{tip.studentName}</span>
+          <span style={{ color: theme.scrim }}> on </span>
+          <span style={{ color: theme.outgoing }}>{tip.heroName}</span>
         </div>
         {tip.quote
-          ? <p style={{ margin: 0, color: theme.textSecondary, fontSize: 12, fontStyle: 'italic', fontFamily: theme.fontSerif, lineHeight: 1.55 }}>
+          ? <p style={{ margin: 0, color: theme.onSurfaceVariant, fontSize: 12, fontStyle: 'italic', fontFamily: theme.fontSerif, lineHeight: 1.55 }}>
               "{tip.quote.length > 100 ? tip.quote.slice(0, 97) + '…' : tip.quote}"
             </p>
-          : <p style={{ margin: 0, color: theme.textMuted, fontSize: 11, fontFamily: theme.fontMono }}>
+          : <p style={{ margin: 0, color: theme.onSurfaceMuted, fontSize: 11, fontFamily: theme.fontMono }}>
               click to pin
             </p>
         }
-        <div style={{ color: theme.textDim, fontSize: 9, fontFamily: theme.fontMono, marginTop: 5 }}>
+        <div style={{ color: theme.scrim, fontSize: 9, fontFamily: theme.fontMono, marginTop: 5 }}>
           click to pin ↑
         </div>
       </div>
@@ -808,48 +1046,48 @@ function EdgePopover({
   theme: Theme;
   onClose: () => void;
 }) {
-  const W = 500; // 320 * 1.618 ≈ 517 → 500px
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
+  const W = Math.min(500, vw - 16); // clamp to viewport on mobile
   const left = Math.max(8, Math.min(pos.x - W / 2, vw - W - 8));
 
   return (
     <div
-      style={{ position: 'absolute', left, top: Math.max(8, pos.y - 10), transform: 'translateY(-100%)', width: W, zIndex: 30 }}
+      style={{ position: 'absolute', left, top: Math.max(8, pos.y - 24), transform: 'translateY(-100%)', width: W, zIndex: 30 }}
       onClick={ev => ev.stopPropagation()}
     >
       <div style={{
-        background: theme.bgOverlay, border: `1px solid ${theme.borderBase}`,
+        background: theme.surfaceContainerHighest, border: `1px solid ${theme.outline}`,
         borderRadius: 8, padding: '20px 22px 16px',
         boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
         animation: 'cardIn 0.2s ease-out 0.6s both',
       }}>
         <button onClick={onClose} aria-label="Close"
-          style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', padding: 4, display: 'flex' }}>
+          style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', color: theme.onSurfaceMuted, cursor: 'pointer', padding: 4, display: 'flex' }}>
           <IconClose size={13} />
         </button>
 
         {/* Downward stem */}
-        <div style={{ position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `8px solid ${theme.borderBase}` }} />
-        <div style={{ position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: `7px solid ${theme.bgOverlay}` }} />
+        <div style={{ position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `8px solid ${theme.outline}` }} />
+        <div style={{ position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: `7px solid ${theme.surfaceContainerHighest}` }} />
 
         {/* MD Subtitle1 (16px) title */}
         <div style={{ fontFamily: theme.fontMono, fontSize: 16, fontWeight: 700, marginBottom: 14, paddingRight: 24, lineHeight: 1.4 }}>
-          <span style={{ color: theme.textPrimary }}>{student.name}</span>
-          <span style={{ color: theme.textDim, fontWeight: 400 }}> on </span>
-          <span style={{ color: theme.accentOut }}>{hero.name}</span>
+          <span style={{ color: theme.onSurface }}>{student.name}</span>
+          <span style={{ color: theme.scrim, fontWeight: 400 }}> on </span>
+          <span style={{ color: theme.outgoing }}>{hero.name}</span>
         </div>
 
         {/* MD Body1 (16px) quote */}
         {ref_.quote
           ? <blockquote style={{
-              borderLeft: `3px solid ${theme.accentOut}55`,
+              borderLeft: `3px solid ${theme.outgoing}55`,
               margin: '0 0 14px', paddingLeft: 14,
-              color: theme.textPrimary, fontStyle: 'italic',
+              color: theme.onSurface, fontStyle: 'italic',
               fontSize: 16, lineHeight: 1.7, fontFamily: theme.fontSerif,
             }}>
               "{ref_.quote}"
             </blockquote>
-          : <p style={{ color: theme.textMuted, fontFamily: theme.fontMono, fontSize: 14, margin: '0 0 14px' }}>
+          : <p style={{ color: theme.onSurfaceMuted, fontFamily: theme.fontMono, fontSize: 14, margin: '0 0 14px' }}>
               No direct quote documented.
             </p>
         }
@@ -872,43 +1110,52 @@ function MusicianBioCard({
   theme: Theme;
   onClose: () => void;
 }) {
-  const W = 420;
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
-  const left = Math.max(8, Math.min(pos.x - W / 2, vw - W - 8));
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const isMob = vw <= 768;
+  const W = Math.min(420, vw - 16);
   const color = ERA_COLORS[musician.eras[0]] ?? '#9ca3af';
-  // Flip below node if near top of screen
-  const showBelow = pos.y < 200;
+
+  // Mobile: fixed to top of screen just below header (~60px)
+  // Desktop: float above the node
+  const left = isMob ? 10 : Math.max(8, Math.min(pos.x - W / 2, vw - W - 8));
+  const cardEstHeight = 280;
+  const showBelow = !isMob && (pos.y - 90 - cardEstHeight < 8 || pos.y < vh * 0.25);
 
   return (
     <div
       style={{
-        position: 'absolute',
-        left,
-        top: showBelow ? pos.y + 20 : Math.max(8, pos.y - 90),
-        transform: showBelow ? 'none' : 'translateY(-100%)',
-        width: W, zIndex: 28,
+        position: isMob ? 'fixed' : 'absolute',
+        left: isMob ? 10 : left,
+        right: isMob ? 10 : 'auto',
+        top: isMob ? 62 : (showBelow ? pos.y + 20 : Math.max(8, pos.y - 90)),
+        transform: (!isMob && !showBelow) ? 'translateY(-100%)' : 'none',
+        width: isMob ? 'auto' : W,
+        maxHeight: isMob ? '42vh' : 'none',
+        overflowY: isMob ? 'auto' : 'visible',
+        zIndex: 28,
       }}
       onClick={ev => ev.stopPropagation()}
     >
       <div style={{
-        background: theme.bgOverlay, border: `1px solid ${theme.borderBase}`,
+        background: theme.surfaceContainerHighest, border: `1px solid ${theme.outline}`,
         borderRadius: 8, padding: '18px 20px 16px',
         boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
         animation: 'cardIn 0.2s ease-out 0.6s both',
       }}>
         <button onClick={onClose} aria-label="Close"
-          style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', color: theme.textMuted, cursor: 'pointer', padding: 4, display: 'flex' }}>
+          style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', color: theme.onSurfaceMuted, cursor: 'pointer', padding: 4, display: 'flex' }}>
           <IconClose size={13} />
         </button>
 
         {/* Stem pointing down to node (or up if flipped) */}
         {!showBelow && <>
-          <div style={{ position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `8px solid ${theme.borderBase}` }} />
-          <div style={{ position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: `7px solid ${theme.bgOverlay}` }} />
+          <div style={{ position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `8px solid ${theme.outline}` }} />
+          <div style={{ position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: `7px solid ${theme.surfaceContainerHighest}` }} />
         </>}
         {showBelow && <>
-          <div style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: `8px solid ${theme.borderBase}` }} />
-          <div style={{ position: 'absolute', top: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderBottom: `7px solid ${theme.bgOverlay}` }} />
+          <div style={{ position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: `8px solid ${theme.outline}` }} />
+          <div style={{ position: 'absolute', top: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderBottom: `7px solid ${theme.surfaceContainerHighest}` }} />
         </>}
 
         {/* MD H6 (20px) name */}
@@ -920,15 +1167,15 @@ function MusicianBioCard({
 
         {/* MD Caption (12px) meta */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-          <span style={{ color: theme.textMuted, fontSize: 12, fontFamily: theme.fontMono }}>
+          <span style={{ color: theme.onSurfaceMuted, fontSize: 12, fontFamily: theme.fontMono }}>
             b. {musician.born}{musician.died ? ` · d. ${musician.died}` : ''}
           </span>
           {musician.eras.map(e => (
             <span key={e} style={{
-              color: ERA_COLORS[e] ?? theme.textMuted,
+              color: ERA_COLORS[e] ?? theme.onSurfaceMuted,
               fontSize: 10, fontFamily: theme.fontMono,
-              background: (ERA_COLORS[e] ?? theme.textMuted) + '18',
-              border: `1px solid ${(ERA_COLORS[e] ?? theme.textMuted)}33`,
+              background: (ERA_COLORS[e] ?? theme.onSurfaceMuted) + '18',
+              border: `1px solid ${(ERA_COLORS[e] ?? theme.onSurfaceMuted)}33`,
               borderRadius: 3, padding: '1px 6px',
             }}>{e}</span>
           ))}
@@ -937,7 +1184,7 @@ function MusicianBioCard({
         {/* MD Body1 (16px) bio */}
         {musician.bio && (
           <p style={{
-            color: theme.textSecondary, fontSize: 14, margin: '0 0 12px',
+            color: theme.onSurfaceVariant, fontSize: 14, margin: '0 0 12px',
             fontFamily: theme.fontSerif, lineHeight: 1.65,
           }}>
             {musician.bio}
@@ -949,13 +1196,13 @@ function MusicianBioCard({
           <a href={musician.bioUrl} target="_blank" rel="noopener noreferrer"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, textDecoration: 'none' }}>
             <span style={{
-              background: theme.bgSurface, border: `1px solid ${theme.borderBase}`,
+              background: theme.surfaceContainer, border: `1px solid ${theme.outline}`,
               borderRadius: 3, padding: '2px 7px',
-              fontSize: 10, fontFamily: theme.fontMono, color: theme.textMuted,
+              fontSize: 10, fontFamily: theme.fontMono, color: theme.onSurfaceMuted,
             }}>
               Wikipedia
             </span>
-            <IconExternalLink size={11} style={{ color: theme.textMuted }} />
+            <IconExternalLink size={11} style={{ color: theme.onSurfaceMuted }} />
           </a>
         )}
       </div>
@@ -988,9 +1235,9 @@ function ConnectionsStrip({
     <div
       style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        background: theme.bgOverlay,
+        background: theme.surfaceContainerHighest,
         backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
-        borderTop: `1px solid ${theme.borderBase}`,
+        borderTop: `1px solid ${theme.outline}`,
         zIndex: 20,
       }}
       onClick={ev => ev.stopPropagation()}
@@ -998,29 +1245,29 @@ function ConnectionsStrip({
       <div style={{ display: 'flex', alignItems: 'center', padding: '8px 22px', gap: 24, flexWrap: 'wrap', minHeight: 38 }}>
         {heroDetails.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ color: theme.textDim, fontSize: 9, fontFamily: theme.fontMono, letterSpacing: '0.1em' }}>STUDIED</span>
+            <span style={{ color: theme.scrim, fontSize: 9, fontFamily: theme.fontMono, letterSpacing: '0.1em' }}>STUDIED</span>
             {heroDetails.map(({ ref, hero }) => (
-              <span key={ref.heroId} style={{ color: theme.accentOut, fontSize: 11, fontFamily: theme.fontMono }}>
+              <span key={ref.heroId} style={{ color: theme.outgoing, fontSize: 11, fontFamily: theme.fontMono }}>
                 → {hero?.name ?? ref.heroId}
               </span>
             ))}
           </div>
         )}
         {heroDetails.length > 0 && citedBy.length > 0 && (
-          <div style={{ width: 1, height: 18, background: theme.borderBase, flexShrink: 0 }} />
+          <div style={{ width: 1, height: 18, background: theme.outline, flexShrink: 0 }} />
         )}
         {citedBy.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ color: theme.textDim, fontSize: 9, fontFamily: theme.fontMono, letterSpacing: '0.1em' }}>CITED BY</span>
+            <span style={{ color: theme.scrim, fontSize: 9, fontFamily: theme.fontMono, letterSpacing: '0.1em' }}>CITED BY</span>
             {citedBy.map(({ student }) => (
-              <span key={student.id} style={{ color: theme.accentIn, fontSize: 11, fontFamily: theme.fontMono }}>
+              <span key={student.id} style={{ color: theme.incoming, fontSize: 11, fontFamily: theme.fontMono }}>
                 → {student.name}
               </span>
             ))}
           </div>
         )}
         <button onClick={onClose} aria-label="Close"
-          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: theme.textDim, cursor: 'pointer', padding: 4, display: 'flex' }}>
+          style={{ marginLeft: 'auto', background: 'none', border: 'none', color: theme.scrim, cursor: 'pointer', padding: 4, display: 'flex' }}>
           <IconClose size={11} />
         </button>
       </div>
@@ -1037,19 +1284,19 @@ function SourceLink({ ref_, theme }: { ref_: HeroRef; theme: Theme }) {
   const inner = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
       <span style={{
-        background: theme.bgSurface,
-        border: `1px solid ${theme.borderBase}`,
+        background: theme.surfaceContainer,
+        border: `1px solid ${theme.outline}`,
         borderRadius: 3,
         padding: '2px 6px',
         fontSize: 9, fontFamily: theme.fontMono, letterSpacing: '0.05em',
-        color: theme.textMuted,
+        color: theme.onSurfaceMuted,
       }}>
         {label}
       </span>
-      <span style={{ color: theme.textMuted, fontSize: 10, fontFamily: theme.fontMono, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ color: theme.onSurfaceMuted, fontSize: 10, fontFamily: theme.fontMono, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {display}
       </span>
-      {ref_.sourceUrl && <IconExternalLink size={10} style={{ color: theme.textMuted }} />}
+      {ref_.sourceUrl && <IconExternalLink size={10} style={{ color: theme.onSurfaceMuted }} />}
     </span>
   );
 

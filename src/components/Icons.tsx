@@ -87,6 +87,21 @@ export function IconArrowDown({ size = 12, style }: IconProps) {
   );
 }
 
+export function IconMenu({ size = 16, style }: IconProps) {
+  return (
+    <svg
+      width={size} height={size}
+      viewBox="0 0 16 16" fill="none"
+      stroke="currentColor" strokeWidth="1.5"
+      strokeLinecap="square" strokeLinejoin="miter"
+      style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, ...style }}
+      aria-hidden="true"
+    >
+      <path d="M2 4h12M2 8h12M2 12h12" />
+    </svg>
+  );
+}
+
 export function IconClose({ size = 14, style }: IconProps) {
   return (
     <svg
