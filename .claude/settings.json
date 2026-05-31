@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(find /Users/sajidreshamwala/dev-projects/folk-llm -type f \\\\\\( -name \"*.css\" -o -name \"*.scss\" -o -name \"*.ts\" -o -name \"*.js\" -o -name \"*.json\" -o -name \"*.html\" \\\\\\) | grep -E \"\\(config|theme|style|token|tailwind|index\\\\.html\\)\" | head -20)",
+      "Read(//Users/sajidreshamwala/dev-projects/folk-llm/**)"
+    ]
+  }
+}
