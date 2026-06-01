@@ -72,9 +72,11 @@ interface HoverTip {
 export function TimelineGraph({
   musicians,
   theme,
+  headerHeight = 60,
 }: {
   musicians: Musician[];
   theme: Theme;
+  headerHeight?: number;
 }) {
   const svgRef        = useRef<SVGSVGElement>(null);
   const containerRef  = useRef<HTMLDivElement>(null);
@@ -250,7 +252,7 @@ export function TimelineGraph({
         .attr('viewBox', '0 -4 8 8').attr('refX', 19).attr('refY', 0)
         .attr('markerWidth', 5).attr('markerHeight', 5).attr('orient', 'auto')
         .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', col);
-    mkArr('arr-dim',     theme.edgeDimmedmedArrow);
+    mkArr('arr-dim',     theme.edgeDimmedArrow);
     mkArr('arr-default', theme.nodeOutline);
     mkArr('arr-out',     theme.outgoing);
     mkArr('arr-in',      theme.incoming);
@@ -572,19 +574,22 @@ export function TimelineGraph({
 
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault();
+          // Sort siblings by their visual Y position so ↑/↓ matches on-screen order
+          const nodeY = (id: string) => nodePositions.current.get(id)?.y ?? 0;
           if (isIncoming) {
-            const idx = studentsOfCtx.findIndex(s => s.id === studentId);
+            const sorted = [...studentsOfCtx].sort((a, b) => nodeY(a.id) - nodeY(b.id));
+            const idx = sorted.findIndex(s => s.id === studentId);
             const next = e.key === 'ArrowDown'
-              ? (idx + 1) % studentsOfCtx.length
-              : (idx - 1 + studentsOfCtx.length) % studentsOfCtx.length;
-            const nextS = studentsOfCtx[next];
-            setSelection({ kind: 'edge', studentId: nextS.id, heroId: contextId, contextId });
+              ? (idx + 1) % sorted.length
+              : (idx - 1 + sorted.length) % sorted.length;
+            setSelection({ kind: 'edge', studentId: sorted[next].id, heroId: contextId, contextId });
           } else if (isOutgoing) {
-            const idx = ctxM.heroes.findIndex(h => h.heroId === heroId);
+            const sorted = [...ctxM.heroes].sort((a, b) => nodeY(a.heroId) - nodeY(b.heroId));
+            const idx = sorted.findIndex(h => h.heroId === heroId);
             const next = e.key === 'ArrowDown'
-              ? (idx + 1) % ctxM.heroes.length
-              : (idx - 1 + ctxM.heroes.length) % ctxM.heroes.length;
-            setSelection({ kind: 'edge', studentId: contextId, heroId: ctxM.heroes[next].heroId, contextId });
+              ? (idx + 1) % sorted.length
+              : (idx - 1 + sorted.length) % sorted.length;
+            setSelection({ kind: 'edge', studentId: contextId, heroId: sorted[next].heroId, contextId });
           }
         } else if (e.key === 'ArrowRight') {
           e.preventDefault();
@@ -739,6 +744,7 @@ export function TimelineGraph({
           musicians={musicians}
           heroToStudents={heroToStudents}
           lastEdge={lastEdgeRef.current}
+          nodePositions={nodePositions.current}
           theme={theme}
           onSetSelection={setSelection}
           onClear={clearAll}
@@ -757,6 +763,7 @@ export function TimelineGraph({
           musician={selectedMusician}
           pos={musicianCardPos}
           theme={theme}
+          headerHeight={headerHeight}
           onClose={clearAll}
         />
       )}
@@ -770,6 +777,7 @@ export function TimelineGraph({
           hero={focusedEdgeData.hero}
           ref_={focusedEdgeData.ref}
           theme={theme}
+          headerHeight={headerHeight}
           onClose={() => setSelection({ kind: 'musician', id: focusedEdgeData.contextId })}
         />
       )}
@@ -795,6 +803,7 @@ function MobileNavControls({
   musicians,
   heroToStudents,
   lastEdge,
+  nodePositions,
   theme,
   onSetSelection,
   onClear,
@@ -803,6 +812,7 @@ function MobileNavControls({
   musicians: Musician[];
   heroToStudents: Map<string, Musician[]>;
   lastEdge: Map<string, string>;
+  nodePositions: Map<string, { x: number; y: number }>;
   theme: Theme;
   onSetSelection: (s: Selection | null) => void;
   onClear: () => void;
@@ -866,31 +876,34 @@ function MobileNavControls({
     rightFn = () => onSetSelection({ kind: 'musician', id: studentId });
     rightLabel = stuM?.name.split(' ').pop() ?? '';
 
-    // Up/down = siblings
+    // Up/down = siblings sorted by visual Y position
+    const nodeY = (id: string) => nodePositions.get(id)?.y ?? 0;
     if (isIncoming) {
-      const idx = students.findIndex(s => s.id === studentId);
-      centerLabel = `${idx + 1} / ${students.length}`;
-      if (students.length > 1) {
+      const sorted = [...students].sort((a, b) => nodeY(a.id) - nodeY(b.id));
+      const idx = sorted.findIndex(s => s.id === studentId);
+      centerLabel = `${idx + 1} / ${sorted.length}`;
+      if (sorted.length > 1) {
         upFn = () => {
-          const prev = (idx - 1 + students.length) % students.length;
-          onSetSelection({ kind: 'edge', studentId: students[prev].id, heroId: contextId, contextId });
+          const prev = (idx - 1 + sorted.length) % sorted.length;
+          onSetSelection({ kind: 'edge', studentId: sorted[prev].id, heroId: contextId, contextId });
         };
         downFn = () => {
-          const next = (idx + 1) % students.length;
-          onSetSelection({ kind: 'edge', studentId: students[next].id, heroId: contextId, contextId });
+          const next = (idx + 1) % sorted.length;
+          onSetSelection({ kind: 'edge', studentId: sorted[next].id, heroId: contextId, contextId });
         };
       }
     } else if (isOutgoing) {
-      const idx = ctxM.heroes.findIndex(h => h.heroId === heroId);
-      centerLabel = `${idx + 1} / ${ctxM.heroes.length}`;
-      if (ctxM.heroes.length > 1) {
+      const sortedH = [...ctxM.heroes].sort((a, b) => nodeY(a.heroId) - nodeY(b.heroId));
+      const idx = sortedH.findIndex(h => h.heroId === heroId);
+      centerLabel = `${idx + 1} / ${sortedH.length}`;
+      if (sortedH.length > 1) {
         upFn = () => {
-          const prev = (idx - 1 + ctxM.heroes.length) % ctxM.heroes.length;
-          onSetSelection({ kind: 'edge', studentId: contextId, heroId: ctxM.heroes[prev].heroId, contextId });
+          const prev = (idx - 1 + sortedH.length) % sortedH.length;
+          onSetSelection({ kind: 'edge', studentId: contextId, heroId: sortedH[prev].heroId, contextId });
         };
         downFn = () => {
-          const next = (idx + 1) % ctxM.heroes.length;
-          onSetSelection({ kind: 'edge', studentId: contextId, heroId: ctxM.heroes[next].heroId, contextId });
+          const next = (idx + 1) % sortedH.length;
+          onSetSelection({ kind: 'edge', studentId: contextId, heroId: sortedH[next].heroId, contextId });
         };
       }
     }
@@ -1037,22 +1050,27 @@ function HoverTooltip({ tip, theme }: { tip: HoverTip; theme: Theme }) {
 // ── Edge popover (1.61× golden ratio scale, MD font sizes) ───────────────────
 
 function EdgePopover({
-  pos, student, hero, ref_, theme, onClose,
+  pos, student, hero, ref_, theme, headerHeight, onClose,
 }: {
   pos: { x: number; y: number };
   student: Musician;
   hero: Musician;
   ref_: HeroRef;
   theme: Theme;
+  headerHeight: number;
   onClose: () => void;
 }) {
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
-  const W = Math.min(500, vw - 16); // clamp to viewport on mobile
+  const isMob = vw <= 768;
+  const W = Math.min(500, vw - 16);
   const left = Math.max(8, Math.min(pos.x - W / 2, vw - W - 8));
 
   return (
     <div
-      style={{ position: 'absolute', left, top: Math.max(8, pos.y - 24), transform: 'translateY(-100%)', width: W, zIndex: 30 }}
+      style={isMob
+        ? { position: 'fixed', top: headerHeight + 10, left: 10, right: 10, zIndex: 30 }
+        : { position: 'absolute', left, top: Math.max(8, pos.y - 24), transform: 'translateY(-100%)', width: W, zIndex: 30 }
+      }
       onClick={ev => ev.stopPropagation()}
     >
       <div style={{
@@ -1067,8 +1085,10 @@ function EdgePopover({
         </button>
 
         {/* Downward stem */}
-        <div style={{ position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `8px solid ${theme.outline}` }} />
-        <div style={{ position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: `7px solid ${theme.surfaceContainerHighest}` }} />
+        {!isMob && <>
+          <div style={{ position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: `8px solid ${theme.outline}` }} />
+          <div style={{ position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: `7px solid ${theme.surfaceContainerHighest}` }} />
+        </>}
 
         {/* MD Subtitle1 (16px) title */}
         <div style={{ fontFamily: theme.fontMono, fontSize: 16, fontWeight: 700, marginBottom: 14, paddingRight: 24, lineHeight: 1.4 }}>
@@ -1103,11 +1123,12 @@ function EdgePopover({
 // Sits on the visualization above the selected musician's node.
 
 function MusicianBioCard({
-  musician, pos, theme, onClose,
+  musician, pos, theme, headerHeight, onClose,
 }: {
   musician: Musician;
   pos: { x: number; y: number };
   theme: Theme;
+  headerHeight: number;
   onClose: () => void;
 }) {
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
@@ -1116,7 +1137,7 @@ function MusicianBioCard({
   const W = Math.min(420, vw - 16);
   const color = ERA_COLORS[musician.eras[0]] ?? '#9ca3af';
 
-  // Mobile: fixed to top of screen just below header (~60px)
+  // Mobile: fixed just below the measured header + 10px gap
   // Desktop: float above the node
   const left = isMob ? 10 : Math.max(8, Math.min(pos.x - W / 2, vw - W - 8));
   const cardEstHeight = 280;
@@ -1128,7 +1149,7 @@ function MusicianBioCard({
         position: isMob ? 'fixed' : 'absolute',
         left: isMob ? 10 : left,
         right: isMob ? 10 : 'auto',
-        top: isMob ? 62 : (showBelow ? pos.y + 20 : Math.max(8, pos.y - 90)),
+        top: isMob ? headerHeight + 10 : (showBelow ? pos.y + 20 : Math.max(8, pos.y - 90)),
         transform: (!isMob && !showBelow) ? 'translateY(-100%)' : 'none',
         width: isMob ? 'auto' : W,
         maxHeight: isMob ? '42vh' : 'none',

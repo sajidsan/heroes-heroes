@@ -23,10 +23,22 @@ const DATASETS: Record<Dataset, { label: string; subtitle: string; data: typeof 
 };
 
 export default function App() {
-  const [dataset, setDataset]   = useState<Dataset>('jazz');
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [dataset, setDataset]       = useState<Dataset>('jazz');
+  const [menuOpen, setMenuOpen]     = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(60);
+  const menuRef   = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const current = DATASETS[dataset];
+
+  // Measure header height so the bio card can clear it on mobile
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
+    ro.observe(el);
+    setHeaderHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
 
   // Close menu on outside click
   useEffect(() => {
@@ -44,7 +56,7 @@ export default function App() {
       display: 'flex', flexDirection: 'column',
       height: '100vh', background: T.surface, overflow: 'hidden',
     }}>
-      <header style={{
+      <header ref={headerRef} style={{
         padding: '10px 20px',
         borderBottom: `1px solid ${T.outline}`,
         flexShrink: 0,
@@ -140,7 +152,7 @@ export default function App() {
       </header>
 
       <div style={{ flex: '1 1 0', minHeight: 0 }}>
-        <TimelineGraph key={dataset} musicians={current.data} theme={T} />
+        <TimelineGraph key={dataset} musicians={current.data} theme={T} headerHeight={headerHeight} />
       </div>
     </div>
   );
