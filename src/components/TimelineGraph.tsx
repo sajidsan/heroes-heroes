@@ -29,14 +29,6 @@ const ERA_COLORS: Record<string, string> = {
   'product-design':     '#fb7185', // rose
 };
 
-const SOURCE_LABEL: Record<string, string> = {
-  interview:     'Interview',
-  autobiography: 'Autobiography',
-  biography:     'Biography',
-  'liner-notes': 'Liner Notes',
-  documentary:   'Documentary',
-  attributed:    'Attributed',
-};
 
 // ── selection state ───────────────────────────────────────────────────────────
 
@@ -181,9 +173,33 @@ export function TimelineGraph({
 
     const svg = d3.select(el);
 
+    // X scale — defined early so zoom handler and axis can share it
+    const minYear = d3.min(musicians, d => d.born)! - 6;
+    const maxYear = d3.max(musicians, d => d.born)! + 14;
+    const xScale  = d3.scaleLinear().domain([minYear, maxYear]).range([0, pw]);
+
+    // Pinned axis — outside zoom group, re-rendered on every zoom event
+    const axisG = svg.append('g')
+      .attr('class', 'x-axis-pinned')
+      .attr('transform', `translate(${ML}, ${H - MB + 4})`);
+
+    const styleAxis = (scale: d3.ScaleLinear<number, number>) => {
+      axisG.call(d3.axisBottom(scale).ticks(8).tickFormat(d => `${d}`).tickSize(0))
+        .call(ax => {
+          ax.select('.domain').remove();
+          ax.selectAll('.tick text')
+            .attr('fill', theme.onSurfaceMuted).attr('font-size', 10)
+            .attr('font-family', theme.fontMono).attr('dy', '1em');
+        });
+    };
+    styleAxis(xScale);
+
     const zb = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.3, 4])
-      .on('zoom', ev => zoomRoot.attr('transform', ev.transform))
+      .on('zoom', ev => {
+        zoomRoot.attr('transform', ev.transform);
+        styleAxis(ev.transform.rescaleX(xScale));
+      })
       .on('end', () => setPositionKey(k => k + 1));
     zoomBehRef.current = zb;
     svg.call(zb);
@@ -198,11 +214,6 @@ export function TimelineGraph({
     });
 
     const g = zoomRoot.append('g').attr('transform', `translate(${ML},${MT})`);
-
-    // X scale
-    const minYear = d3.min(musicians, d => d.born)! - 6;
-    const maxYear = d3.max(musicians, d => d.born)! + 14;
-    const xScale  = d3.scaleLinear().domain([minYear, maxYear]).range([0, pw]);
 
     // Force sim
     const nodes: SimNode[] = musicians.map(m => ({
@@ -235,18 +246,6 @@ export function TimelineGraph({
     const resolvedLinks = (
       (sim.force('link') as d3.ForceLink<SimNode, d3.SimulationLinkDatum<SimNode>>).links()
     ) as unknown as ResolvedLink[];
-
-    // X axis
-    g.append('g')
-      .attr('transform', `translate(0,${ph})`)
-      .call(d3.axisBottom(xScale).ticks(8).tickFormat(d => `${d}`).tickSize(-ph))
-      .call(ax => {
-        ax.select('.domain').attr('stroke', theme.outlineVariant);
-        ax.selectAll('.tick line').attr('stroke', theme.outlineVariant).attr('stroke-dasharray', '3 4');
-        ax.selectAll('.tick text')
-          .attr('fill', theme.onSurfaceMuted).attr('font-size', 10)
-          .attr('font-family', theme.fontMono).attr('dy', '1.4em');
-      });
 
     // Arrow markers
     const defs = svg.append('defs');
@@ -356,14 +355,7 @@ export function TimelineGraph({
       });
     });
 
-    // Era legend
-    const usedEras = [...new Set(musicians.flatMap(m => m.eras))];
-    const legG = svg.append('g').attr('transform', `translate(${ML},${H - 10})`);
-    usedEras.forEach((era, i) => {
-      legG.append('circle').attr('cx', i*108).attr('r', 4).attr('fill', ERA_COLORS[era] ?? '#9ca3af');
-      legG.append('text').attr('x', i*108+9).attr('y', 4)
-        .attr('fill', theme.onSurfaceMuted).attr('font-size', 9).attr('font-family', theme.fontMono).text(era);
-    });
+    // Era legend removed — era shown via node/tag colors on selection
 
     // Narrow viewport: fit horizontally and vertically center the content
     if (pw > W - ML - MR) {
@@ -1307,25 +1299,14 @@ function ConnectionsStrip({
 // ── Source link chip ──────────────────────────────────────────────────────────
 
 function SourceLink({ ref_, theme }: { ref_: HeroRef; theme: Theme }) {
-  const label = SOURCE_LABEL[ref_.sourceType] ?? ref_.sourceType;
   const display = ref_.sourceYear ? `${ref_.source} · ${ref_.sourceYear}` : ref_.source!;
 
   const inner = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-      <span style={{
-        background: theme.surfaceContainer,
-        border: `1px solid ${theme.outline}`,
-        borderRadius: 3,
-        padding: '2px 6px',
-        fontSize: 9, fontFamily: theme.fontMono, letterSpacing: '0.05em',
-        color: theme.onSurfaceMuted,
-      }}>
-        {label}
-      </span>
-      <span style={{ color: theme.onSurfaceMuted, fontSize: 10, fontFamily: theme.fontMono, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ color: theme.scrim, fontSize: 10, fontFamily: theme.fontMono, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {display}
       </span>
-      {ref_.sourceUrl && <IconExternalLink size={10} style={{ color: theme.onSurfaceMuted }} />}
+      {ref_.sourceUrl && <IconExternalLink size={10} style={{ color: theme.scrim }} />}
     </span>
   );
 

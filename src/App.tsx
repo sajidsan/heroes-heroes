@@ -46,11 +46,13 @@ export default function App() {
       display: 'flex', flexDirection: 'column',
       height: '100vh', background: T.surface, overflow: 'hidden',
     }}>
+      {/* Header only shown in graph view — cover has its own island link */}
       <header ref={headerRef} style={{
         padding: '10px 20px',
         borderBottom: `1px solid ${T.outline}`,
         flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: showCover ? 'none' : 'flex',
+        alignItems: 'center', gap: 12,
       }}>
         {/* Title — clicking returns to cover */}
         <div

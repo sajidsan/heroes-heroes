@@ -8,7 +8,9 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(sed -i '' 's/pos, student, hero, ref_, theme, headerHeight, onClose,/pos, student, hero, ref_, theme, onClose,/' /Users/sajidreshamwala/dev-projects/heroes-heroes/src/components/TimelineGraph.tsx)",
-      "Bash(sed -i '' 's/  headerHeight: number;$//' /Users/sajidreshamwala/dev-projects/heroes-heroes/src/components/TimelineGraph.tsx)"
+      "Bash(sed -i '' 's/  headerHeight: number;$//' /Users/sajidreshamwala/dev-projects/heroes-heroes/src/components/TimelineGraph.tsx)",
+      "Bash(npm info *)",
+      "Bash(node -e \"const g = require\\('griddy-icons'\\); console.log\\(Object.keys\\(g\\).filter\\(k => k.toLowerCase\\(\\).includes\\('vac'\\) || k === 'Vacation'\\).join\\(', '\\)\\)\")"
     ]
   }
 }

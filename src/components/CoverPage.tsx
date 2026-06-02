@@ -1,6 +1,8 @@
 import type { Theme } from '../theme';
 import type { Musician } from '../types';
 import { IconArrowRight } from './Icons';
+// @ts-ignore — griddy-icons has no type declarations
+import { Vacation } from 'griddy-icons';
 
 // ── App badge icon — two nodes connected by an edge ───────────────────────────
 function NodeEdgeIcon({ size = 20, color }: { size?: number; color: string }) {
@@ -78,8 +80,8 @@ export function CoverPage({
 
   const artistLabel  = activeDataset === 'design' ? 'CREATORS' : 'ARTISTS';
   const sourceSummary = activeDataset === 'jazz'
-    ? 'Down Beat · Jazz Jnl · liner notes'
-    : 'Objectified · Wired · biographies';
+    ? 'Down Beat · Jazz Jnl'
+    : 'Objectified · Wired';
 
   const statsRows: [string, string, string, string][] = [
     ['DATASET',     datasets[activeDataset].label, artistLabel,  String(totalArtists)],
@@ -89,10 +91,27 @@ export function CoverPage({
 
   return (
     <div style={{
-      flex: 1, overflow: 'auto',
+      flex: 1, overflow: 'auto', position: 'relative',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '24px 20px',
     }}>
+      {/* Vacation / home island — top right, links to portfolio */}
+      <a
+        href="https://sajidsan.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          position: 'absolute', top: 16, right: 16,
+          color: theme.scrim, display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          textDecoration: 'none', zIndex: 10,
+          transition: 'color 0.15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.color = theme.onSurfaceMuted)}
+        onMouseLeave={e => (e.currentTarget.style.color = theme.scrim)}
+      >
+        <Vacation size={18} />
+      </a>
       <div style={{
         maxWidth: 480, width: '100%',
         display: 'flex', flexDirection: 'column', gap: 22,
@@ -123,7 +142,7 @@ export function CoverPage({
             fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase',
             fontFamily: theme.fontMono, color: theme.onSurfaceVariant,
           }}>
-            Who Are Heroes Heroes
+            Our Heroes' Heroes
           </span>
         </div>
 
@@ -154,24 +173,24 @@ export function CoverPage({
           ))}
         </div>
 
-        {/* Headline */}
-        <h2 style={{
-          margin: 0,
-          fontFamily: theme.fontSans, fontWeight: 700,
-          fontSize: 'clamp(1.5rem, 5vw, 1.9rem)',
-          color: theme.onSurface, letterSpacing: '-0.02em', lineHeight: 1.2,
-        }}>
-          You know your heroes.<br />But what about <em>their</em> heroes?
-        </h2>
-
-        {/* Description */}
-        <p style={{
-          margin: 0,
-          fontFamily: theme.fontSerif, fontSize: '0.9rem',
-          lineHeight: 1.75, color: theme.onSurfaceVariant,
-        }}>
-          Documented influence chains in jazz and design, with direct quotes from interviews and biographies.
-        </p>
+        {/* Headline + description grouped with tighter 14px gap (22-8) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <h2 style={{
+            margin: 0,
+            fontFamily: theme.fontSans, fontWeight: 700,
+            fontSize: 'clamp(1.5rem, 5vw, 1.9rem)',
+            color: theme.onSurface, letterSpacing: '-0.02em', lineHeight: 1.2,
+          }}>
+            You know your heroes.<br />But what about <em>their</em> heroes?
+          </h2>
+          <p style={{
+            margin: 0,
+            fontFamily: theme.fontSerif, fontSize: '0.9rem',
+            lineHeight: 1.75, color: theme.onSurfaceVariant,
+          }}>
+            Documented influence chains in jazz and design, with direct quotes from interviews and biographies.
+          </p>
+        </div>
 
         {/* Stats grid */}
         <div style={{
