@@ -143,7 +143,7 @@ export default function App() {
                   }}
                 >
                   <span style={{ width: 14 }} />
-                  ← Cover page
+                  ← Home
                 </button>
               </>}
             </div>

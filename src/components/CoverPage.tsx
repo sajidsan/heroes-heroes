@@ -70,18 +70,21 @@ export function CoverPage({
   const data = datasets[activeDataset].data;
 
   // Compute stats from active dataset
-  const totalArtists = data.length;
+  const totalArtists   = data.length;
   const totalConnections = data.reduce((sum, m) => sum + m.heroes.length, 0);
-  const quotedCount = data.reduce((sum, m) => sum + m.heroes.filter(h => h.quote).length, 0);
-  const quotedPct = totalConnections > 0 ? Math.round((quotedCount / totalConnections) * 100) : 0;
   const minYear = Math.min(...data.map(m => m.born));
   const maxYear = Math.max(...data.map(m => m.born));
-  const period = `${minYear}–${maxYear}`;
+  const period  = `${minYear}–${maxYear}`;
+
+  const artistLabel  = activeDataset === 'design' ? 'CREATORS' : 'ARTISTS';
+  const sourceSummary = activeDataset === 'jazz'
+    ? 'Down Beat · Jazz Jnl · liner notes'
+    : 'Objectified · Wired · biographies';
 
   const statsRows: [string, string, string, string][] = [
-    ['DATASET',      datasets[activeDataset].label, 'ARTISTS', String(totalArtists)],
-    ['CONNECTIONS',  String(totalConnections),       'QUOTED',  `${quotedPct}%`],
-    ['TIME PERIOD',  period,                         'FORMAT',  'Timeline'],
+    ['DATASET',     datasets[activeDataset].label, artistLabel,  String(totalArtists)],
+    ['CONNECTIONS', String(totalConnections),       'SOURCES',    sourceSummary],
+    ['TIME PERIOD', period,                         'FORMAT',     'Timeline'],
   ];
 
   return (
@@ -104,40 +107,7 @@ export function CoverPage({
         </span>
 
         {/* App badge */}
-        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-          {/* Speech bubble */}
-          <div style={{
-            position: 'absolute',
-            bottom: 'calc(100% + 2px)',
-            left: 0,
-            background: theme.surfaceContainer,
-            border: `1px solid ${theme.outline}`,
-            borderRadius: 4,
-            padding: '3px 9px',
-            whiteSpace: 'nowrap',
-            fontSize: 9,
-            fontFamily: theme.fontMono,
-            fontStyle: 'italic',
-            color: theme.onSurfaceMuted,
-            // Downward tail
-          }}>
-            primary sources only
-            <span style={{
-              position: 'absolute', bottom: -5, left: 14,
-              width: 0, height: 0,
-              borderLeft: '5px solid transparent',
-              borderRight: '5px solid transparent',
-              borderTop: `5px solid ${theme.outline}`,
-            }} />
-            <span style={{
-              position: 'absolute', bottom: -4, left: 15,
-              width: 0, height: 0,
-              borderLeft: '4px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: `4px solid ${theme.surfaceContainer}`,
-            }} />
-          </div>
-
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
           {/* Icon box */}
           <div style={{
             width: 40, height: 40,
@@ -191,7 +161,7 @@ export function CoverPage({
           fontSize: 'clamp(1.5rem, 5vw, 1.9rem)',
           color: theme.onSurface, letterSpacing: '-0.02em', lineHeight: 1.2,
         }}>
-          You know the greats. Now meet their heroes.
+          You know the greats.<br />But what about their heroes?
         </h2>
 
         {/* Description */}

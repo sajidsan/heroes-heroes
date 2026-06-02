@@ -1039,9 +1039,7 @@ function HoverTooltip({ tip, theme }: { tip: HoverTip; theme: Theme }) {
         boxShadow: '0 4px 24px rgba(0,0,0,0.55)',
       }}>
         <div style={{ fontSize: 11, fontFamily: theme.fontMono, marginBottom: 6 }}>
-          <span style={{ color: theme.onSurface }}>{tip.studentName}</span>
-          <span style={{ color: theme.scrim }}> on </span>
-          <span style={{ color: theme.outgoing }}>{tip.heroName}</span>
+          <span style={{ color: theme.onSurface }}>{tip.studentName} on {tip.heroName}</span>
         </div>
         {tip.quote
           ? <p style={{ margin: 0, color: theme.onSurfaceVariant, fontSize: 12, fontStyle: 'italic', fontFamily: theme.fontSerif, lineHeight: 1.55 }}>
@@ -1104,9 +1102,7 @@ function EdgePopover({
 
         {/* MD Subtitle1 (16px) title */}
         <div style={{ fontFamily: theme.fontMono, fontSize: 16, fontWeight: 700, marginBottom: 14, paddingRight: 24, lineHeight: 1.4 }}>
-          <span style={{ color: theme.onSurface }}>{student.name}</span>
-          <span style={{ color: theme.scrim, fontWeight: 400 }}> on </span>
-          <span style={{ color: theme.outgoing }}>{hero.name}</span>
+          <span style={{ color: theme.onSurface }}>{student.name} on {hero.name}</span>
         </div>
 
         {/* MD Body1 (16px) quote */}
