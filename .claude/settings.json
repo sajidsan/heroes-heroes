@@ -6,7 +6,9 @@
       "Read(//Users/sajidreshamwala/dev-projects/folk-llm/**)",
       "Bash(python3 -)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(sed -i '' 's/pos, student, hero, ref_, theme, headerHeight, onClose,/pos, student, hero, ref_, theme, onClose,/' /Users/sajidreshamwala/dev-projects/heroes-heroes/src/components/TimelineGraph.tsx)",
+      "Bash(sed -i '' 's/  headerHeight: number;$//' /Users/sajidreshamwala/dev-projects/heroes-heroes/src/components/TimelineGraph.tsx)"
     ]
   }
 }

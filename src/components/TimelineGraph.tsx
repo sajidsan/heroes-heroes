@@ -72,11 +72,9 @@ interface HoverTip {
 export function TimelineGraph({
   musicians,
   theme,
-  headerHeight = 60,
 }: {
   musicians: Musician[];
   theme: Theme;
-  headerHeight?: number;
 }) {
   const svgRef        = useRef<SVGSVGElement>(null);
   const containerRef  = useRef<HTMLDivElement>(null);
@@ -775,7 +773,6 @@ export function TimelineGraph({
           musician={selectedMusician}
           pos={musicianCardPos}
           theme={theme}
-          headerHeight={headerHeight}
           onClose={clearAll}
         />
       )}
@@ -789,7 +786,6 @@ export function TimelineGraph({
           hero={focusedEdgeData.hero}
           ref_={focusedEdgeData.ref}
           theme={theme}
-          headerHeight={headerHeight}
           onClose={() => setSelection({ kind: 'musician', id: focusedEdgeData.contextId })}
         />
       )}
@@ -1060,14 +1056,14 @@ function HoverTooltip({ tip, theme }: { tip: HoverTip; theme: Theme }) {
 // ── Edge popover (1.61× golden ratio scale, MD font sizes) ───────────────────
 
 function EdgePopover({
-  pos, student, hero, ref_, theme, headerHeight, onClose,
+  pos, student, hero, ref_, theme, onClose,
 }: {
   pos: { x: number; y: number };
   student: Musician;
   hero: Musician;
   ref_: HeroRef;
   theme: Theme;
-  headerHeight: number;
+
   onClose: () => void;
 }) {
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
@@ -1078,7 +1074,7 @@ function EdgePopover({
   return (
     <div
       style={isMob
-        ? { position: 'fixed', top: headerHeight + 10, left: 10, right: 10, zIndex: 30 }
+        ? { position: 'absolute', top: 10, left: 10, right: 10, zIndex: 30 }
         : { position: 'absolute', left, top: Math.max(8, pos.y - 24), transform: 'translateY(-100%)', width: W, zIndex: 30 }
       }
       onClick={ev => ev.stopPropagation()}
@@ -1131,19 +1127,17 @@ function EdgePopover({
 // Sits on the visualization above the selected musician's node.
 
 function MusicianBioCard({
-  musician, pos, theme, headerHeight, onClose,
+  musician, pos, theme, onClose,
 }: {
   musician: Musician;
   pos: { x: number; y: number };
   theme: Theme;
-  headerHeight: number;
   onClose: () => void;
 }) {
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
   const isMob = vw <= 768;
   const W = Math.min(420, vw - 16);
-  const color = ERA_COLORS[musician.eras[0]] ?? '#9ca3af';
 
   // Mobile: fixed just below the measured header + 10px gap
   // Desktop: float above the node
@@ -1154,10 +1148,12 @@ function MusicianBioCard({
   return (
     <div
       style={{
-        position: isMob ? 'fixed' : 'absolute',
+        // Mobile: absolute within the graph container (avoids iOS fixed+overflow:hidden bug).
+        // The graph container starts right below the header, so top:10 = header-flush + 10px gap.
+        position: 'absolute',
         left: isMob ? 10 : left,
         right: isMob ? 10 : 'auto',
-        top: isMob ? headerHeight + 10 : (showBelow ? pos.y + 20 : Math.max(8, pos.y - 90)),
+        top: isMob ? 10 : (showBelow ? pos.y + 20 : Math.max(8, pos.y - 90)),
         transform: (!isMob && !showBelow) ? 'translateY(-100%)' : 'none',
         width: isMob ? 'auto' : W,
         maxHeight: isMob ? '42vh' : 'none',
@@ -1187,27 +1183,31 @@ function MusicianBioCard({
           <div style={{ position: 'absolute', top: -7, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderBottom: `7px solid ${theme.surfaceContainerHighest}` }} />
         </>}
 
-        {/* MD H6 (20px) name */}
+        {/* MD H6 (20px) name — neutral, not era-colored */}
         <div style={{ marginBottom: 10, paddingRight: 24 }}>
-          <span style={{ color, fontSize: 20, fontWeight: 700, fontFamily: theme.fontSans, lineHeight: 1.2 }}>
+          <span style={{ color: theme.onSurface, fontSize: 20, fontWeight: 700, fontFamily: theme.fontSans, lineHeight: 1.2 }}>
             {musician.name}
           </span>
         </div>
 
-        {/* MD Caption (12px) meta */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+        {/* MD Caption (12px) meta — primary era keeps color, secondary eras are neutral */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ color: theme.onSurfaceMuted, fontSize: 12, fontFamily: theme.fontMono }}>
             b. {musician.born}{musician.died ? ` · d. ${musician.died}` : ''}
           </span>
-          {musician.eras.map(e => (
-            <span key={e} style={{
-              color: ERA_COLORS[e] ?? theme.onSurfaceMuted,
-              fontSize: 10, fontFamily: theme.fontMono,
-              background: (ERA_COLORS[e] ?? theme.onSurfaceMuted) + '18',
-              border: `1px solid ${(ERA_COLORS[e] ?? theme.onSurfaceMuted)}33`,
-              borderRadius: 3, padding: '1px 6px',
-            }}>{e}</span>
-          ))}
+          {musician.eras.map((e, i) => {
+            const eraColor = ERA_COLORS[e] ?? theme.onSurfaceMuted;
+            const isPrimary = i === 0;
+            return (
+              <span key={e} style={{
+                color:      isPrimary ? eraColor           : theme.onSurfaceMuted,
+                fontSize:   10, fontFamily: theme.fontMono,
+                background: isPrimary ? eraColor + '18'   : theme.surfaceContainer,
+                border:     `1px solid ${isPrimary ? eraColor + '44' : theme.outline}`,
+                borderRadius: 3, padding: '1px 6px',
+              }}>{e}</span>
+            );
+          })}
         </div>
 
         {/* MD Body1 (16px) bio */}

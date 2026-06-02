@@ -24,22 +24,12 @@ const DATASETS: Record<Dataset, { label: string; subtitle: string; data: typeof 
 };
 
 export default function App() {
-  const [dataset, setDataset]           = useState<Dataset>('jazz');
-  const [showCover, setShowCover]       = useState(true);
-  const [menuOpen, setMenuOpen]         = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(60);
+  const [dataset, setDataset]   = useState<Dataset>('jazz');
+  const [showCover, setShowCover] = useState(true);
+  const [menuOpen, setMenuOpen]   = useState(false);
   const menuRef   = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const current   = DATASETS[dataset];
-
-  useEffect(() => {
-    const el = headerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setHeaderHeight(el.offsetHeight));
-    ro.observe(el);
-    setHeaderHeight(el.offsetHeight);
-    return () => ro.disconnect();
-  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -164,7 +154,6 @@ export default function App() {
               key={dataset}
               musicians={current.data}
               theme={T}
-              headerHeight={headerHeight}
             />
         }
       </div>
