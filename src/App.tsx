@@ -72,7 +72,7 @@ export default function App() {
             margin: 0, color: T.onSurface, fontSize: 15,
             fontFamily: T.fontSans, fontWeight: 700, letterSpacing: '0.01em', whiteSpace: 'nowrap',
           }}>
-            Who are our Heroes Heroes?
+            Our heroes' heroes
           </h1>
           {!showCover && (
             <span style={{ color: T.onSurfaceMuted, fontSize: 11, fontFamily: T.fontMono, whiteSpace: 'nowrap' }}>

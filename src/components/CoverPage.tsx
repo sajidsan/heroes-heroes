@@ -161,7 +161,7 @@ export function CoverPage({
           fontSize: 'clamp(1.5rem, 5vw, 1.9rem)',
           color: theme.onSurface, letterSpacing: '-0.02em', lineHeight: 1.2,
         }}>
-          You know the greats.<br />But what about their heroes?
+          You know your heroes.<br />But what about <em>their</em> heroes?
         </h2>
 
         {/* Description */}
@@ -170,8 +170,7 @@ export function CoverPage({
           fontFamily: theme.fontSerif, fontSize: '0.9rem',
           lineHeight: 1.75, color: theme.onSurfaceVariant,
         }}>
-          Documented influence chains in jazz and design, with direct quotes from interviews,
-          biographies, and liner notes.
+          Documented influence chains in jazz and design, with direct quotes from interviews and biographies.
         </p>
 
         {/* Stats grid */}
