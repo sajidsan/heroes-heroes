@@ -170,7 +170,12 @@ export function TimelineGraph({
 
     const W = el.clientWidth  || 1100;
     const H = el.clientHeight || 600;
-    const pw = W - ML - MR, ph = H - MT - MB;
+    // Always lay out with at least 820px of horizontal plot space.
+    // On narrow viewports we set an initial zoom to fit the whole graph in view —
+    // the user can then pinch-zoom to explore detail.
+    const MIN_PW = 820;
+    const pw = Math.max(W - ML - MR, MIN_PW);
+    const ph = H - MT - MB;
 
     arcMids.current.clear();
     nodePositions.current.clear();
@@ -361,6 +366,13 @@ export function TimelineGraph({
       legG.append('text').attr('x', i*108+9).attr('y', 4)
         .attr('fill', theme.onSurfaceMuted).attr('font-size', 9).attr('font-family', theme.fontMono).text(era);
     });
+
+    // Narrow viewport: fit horizontally and vertically center the content
+    if (pw > W - ML - MR) {
+      const k  = (W - ML - MR) / pw;
+      const ty = H / 2 - (MT + ph / 2) * k; // center graph vertically
+      svg.call(zb.transform, d3.zoomIdentity.translate(ML * (1 - k), ty).scale(k));
+    }
 
     return () => { sim.stop(); };
   }, [musicians, theme, setSelection]);
