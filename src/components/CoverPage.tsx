@@ -91,39 +91,38 @@ export function CoverPage({
 
   return (
     <div style={{
-      flex: 1, overflow: 'auto', position: 'relative',
+      flex: 1, overflow: 'auto',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: '24px 20px',
     }}>
-      {/* Vacation / home island — top right, links to portfolio */}
-      <a
-        href="https://sajidsan.com"
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          position: 'absolute', top: 16, right: 16,
-          color: theme.scrim, display: 'flex',
-          alignItems: 'center', justifyContent: 'center',
-          textDecoration: 'none', zIndex: 10,
-          transition: 'color 0.15s',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.color = theme.onSurfaceMuted)}
-        onMouseLeave={e => (e.currentTarget.style.color = theme.scrim)}
-      >
-        <Vacation size={18} />
-      </a>
       <div style={{
         maxWidth: 480, width: '100%',
         display: 'flex', flexDirection: 'column', gap: 22,
       }}>
 
-        {/* Version chip */}
-        <span style={{
-          fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
-          fontFamily: theme.fontMono, color: theme.scrim,
-        }}>
-          Version 1.0
-        </span>
+        {/* Version + island icon in one row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{
+            fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
+            fontFamily: theme.fontMono, color: theme.scrim,
+          }}>
+            Version 1.0
+          </span>
+          <a
+            href="https://sajidsan.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: theme.scrim, display: 'flex',
+              alignItems: 'center', textDecoration: 'none',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = theme.onSurfaceMuted)}
+            onMouseLeave={e => (e.currentTarget.style.color = theme.scrim)}
+          >
+            <Vacation size={18} />
+          </a>
+        </div>
 
         {/* App badge */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>

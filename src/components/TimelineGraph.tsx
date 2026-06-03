@@ -106,52 +106,6 @@ export function TimelineGraph({
     return map;
   }, [musicians]);
 
-  // ── auto-pan: fit a set of node IDs in view ────────────────────────────────
-  const fitNodes = useCallback((ids: string[]) => {
-    const el = svgRef.current;
-    const zb = zoomBehRef.current;
-    if (!el || !zb || ids.length === 0) return;
-
-    const W = el.clientWidth, H = el.clientHeight;
-    const positions = ids
-      .map(id => nodePositions.current.get(id))
-      .filter(Boolean) as { x: number; y: number }[];
-    if (positions.length === 0) return;
-
-    const PAD = 60; // px buffer around nodes
-    const minX = Math.min(...positions.map(p => p.x)) - PAD;
-    const maxX = Math.max(...positions.map(p => p.x)) + PAD;
-    const minY = Math.min(...positions.map(p => p.y)) - PAD;
-    const maxY = Math.max(...positions.map(p => p.y)) + PAD;
-    const cw = maxX - minX, ch = maxY - minY;
-
-    const OUTER = 0.1; // 10% outer margin of viewport
-    const availW = (W - ML - MR) * (1 - OUTER * 2);
-    const availH = (H - MT - MB) * (1 - OUTER * 2);
-    const k = Math.min(availW / (cw || 1), availH / (ch || 1), 3);
-
-    const midX = (minX + maxX) / 2 + ML;
-    const midY = (minY + maxY) / 2 + MT;
-
-    // Check if already in view
-    const t = d3.zoomTransform(el);
-    const [sMinX, sMinY] = t.apply([minX + ML, minY + MT]);
-    const [sMaxX, sMaxY] = t.apply([maxX + ML, maxY + MT]);
-    const SLACK = 40;
-    if (
-      sMinX > SLACK && sMinY > SLACK &&
-      sMaxX < W - SLACK && sMaxY < H - SLACK
-    ) return;
-
-    const target = d3.zoomIdentity
-      .translate(W / 2, H / 2)
-      .scale(k)
-      .translate(-midX, -midY);
-
-    d3.select(el)
-      .transition().duration(650).ease(d3.easeCubicOut)
-      .call(zb.transform, target);
-  }, []);
 
   // ── EFFECT 1: full D3 layout + render ─────────────────────────────────────
   useEffect(() => {
@@ -506,27 +460,33 @@ export function TimelineGraph({
   useEffect(() => {
     if (!selection) return;
 
-    if (selection.kind === 'musician') {
-      // Center the artist in the viewport at a fixed scale
-      const el = svgRef.current;
-      const zb = zoomBehRef.current;
-      if (!el || !zb) return;
-      const pos = nodePositions.current.get(selection.id);
-      if (!pos) return;
-      const W = el.clientWidth, H = el.clientHeight;
-      // Sit the node at 58% of height so the bio card above it has room
-      const k = 1.8;
-      const target = d3.zoomIdentity
-        .translate(W * 0.5, H * 0.58)
-        .scale(k)
-        .translate(-(pos.x + ML), -(pos.y + MT));
-      d3.select(el)
-        .transition().duration(650).ease(d3.easeCubicOut)
-        .call(zb.transform, target);
-    } else {
-      fitNodes([selection.studentId, selection.heroId]);
-    }
-  }, [selection, fitNodes]);
+    const el = svgRef.current;
+    const zb = zoomBehRef.current;
+    if (!el || !zb) return;
+
+    // Always center on the context musician (for edges: the shared anchor node).
+    // This keeps all sibling "to"/"from" lines in view so the user can navigate
+    // between them without the viewport jumping to individual edge endpoints.
+    const centerId = selection.kind === 'musician' ? selection.id : selection.contextId;
+    const pos = nodePositions.current.get(centerId);
+    if (!pos) return;
+
+    const W = el.clientWidth, H = el.clientHeight;
+
+    // Skip if the context node is already roughly centered (avoids re-animating
+    // when navigating between siblings whose anchor is already in place).
+    const [sx, sy] = d3.zoomTransform(el).apply([pos.x + ML, pos.y + MT]);
+    if (Math.abs(sx - W * 0.5) < W * 0.15 && Math.abs(sy - H * 0.58) < H * 0.12) return;
+
+    const k = 1.8;
+    const target = d3.zoomIdentity
+      .translate(W * 0.5, H * 0.58)
+      .scale(k)
+      .translate(-(pos.x + ML), -(pos.y + MT));
+    d3.select(el)
+      .transition().duration(650).ease(d3.easeCubicOut)
+      .call(zb.transform, target);
+  }, [selection]);
 
   // ── EFFECT 4: keyboard navigation ─────────────────────────────────────────
   useEffect(() => {
